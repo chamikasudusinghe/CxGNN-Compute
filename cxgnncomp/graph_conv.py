@@ -16,7 +16,7 @@ from cxgnncomp_backend import (
 )
 from .util import log
 import torch.nn.functional as F
-from torch_scatter import segment_csr, gather_csr
+from torch_scatter import segment_csr, gather_csr, scatter
 from .timer import TimerOP
 from .graph_kernel import SpMMValOP
 from .typed_linear import TypedLinearE2EOP, TypedLinearS2DPushOP
@@ -166,7 +166,7 @@ class MyGINConv(torch.nn.Module):
         self.in_channels = in_channels
         self.hidden_channels = hidden_channels
         self.nn = torch.nn.Linear(in_channels, hidden_channels, bias=False)
-        self.init_eps = 0.2
+        self.init_eps = 0.0
         self.eps = torch.nn.Parameter(torch.Tensor([self.init_eps]))
         self.reset_parameters()
 
@@ -414,7 +414,7 @@ class MyGATConv(torch.nn.Module):
             self.bias = Parameter(torch.Tensor(out_channels))
         else:
             self.bias = None
-        self.edge_softmax_schedule = "fused"
+        self.edge_softmax_schedule = "not_fused"
         self.reset_parameters()
 
     def reset_parameters(self):
@@ -561,8 +561,8 @@ class MyGCNConv(torch.nn.Module):
         self,
         in_channels: int,
         out_channels: int,
-        normalize: bool = False,
-        bias: bool = True,
+        normalize: bool = True,
+        bias: bool = False,
     ) -> None:
         super().__init__()
         self.in_channels = in_channels

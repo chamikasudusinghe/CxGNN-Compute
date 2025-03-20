@@ -55,6 +55,13 @@ def prepare_graph(dset="products",
                                           num_seeds=num_seeds,
                                           device=device)
 
+def load_node_features(dset, num_nodes, feat_len, num_head, device):
+    feature_path = f"/home/chamika2/gnn/data/{dset}/processed/node_features.dat"
+    print(f"Loading node features from {feature_path}")
+    features = np.fromfile(feature_path, dtype=np.float32).reshape(num_nodes, feat_len)
+    features_tensor = torch.from_numpy(features).to(device)
+    
+    return features_tensor
 
 def prepare_data_full_graph(dset="products",
                             feat_len=128,
@@ -69,9 +76,15 @@ def prepare_data_full_graph(dset="products",
     ptr, idx = cxgnndl.load_full_graph_structure(dset, undirected)
     ptr = torch.from_numpy(ptr).to(device)
     idx = torch.from_numpy(idx).to(device)
+    print(f"ptr: {ptr}")
+    print(f"idx: {idx}")
+    print(f"ptr.shape[0]: {ptr.shape[0]}")
+    print(f"idx.shape[0]: {idx.shape[0]}")
+    print(f"Max index in idx: {torch.max(idx)}")
     num_node = max(torch.max(idx) + 1, ptr.shape[0] - 1)
     if feat_len == 0:
         need_feat = False
+    print(f"Number of nodes: {num_node}")
     if ptr.shape[0] - 1 != num_node:
         new_ptr = torch.zeros([num_node + 1], dtype=torch.int64, device=device)
         new_ptr[:ptr.shape[0]] = ptr
@@ -79,9 +92,10 @@ def prepare_data_full_graph(dset="products",
         ptr = new_ptr
     if need_feat:
         if num_head == 1:
-            x = torch.randn([ptr.shape[0] - 1, feat_len],
-                            dtype=torch.float32,
-                            device=device)
+            x = load_node_features(dset, num_node, feat_len, num_head, device)
+            #x = torch.randn([ptr.shape[0] - 1, feat_len],
+            #                dtype=torch.float32,
+            #                device=device)
         else:
             x = torch.randn([ptr.shape[0] - 1, num_head, feat_len],
                             dtype=torch.float32,

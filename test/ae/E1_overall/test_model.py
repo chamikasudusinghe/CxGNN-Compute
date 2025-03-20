@@ -14,7 +14,48 @@ from cxgnncomp import (
 )
 import dgl
 import time
+import subprocess
+import numpy as np
 
+def train_epoch(model, params, label, optimizer, lossfn):
+    for epoch in range(1, 100):
+        optimizer.zero_grad()
+        torch.cuda.synchronize()
+        t0 = time.time()
+        
+        out = model(*params)
+        if isinstance(model, LSTMConv):
+            return
+        
+        torch.cuda.synchronize()
+        t1 = time.time()
+        
+        loss = lossfn(out, label)
+        loss.backward()
+        optimizer.step()
+        
+        torch.cuda.synchronize()
+        t2 = time.time()
+        
+        # Calculate GPU memory utilization
+        gpu_memory_allocated = torch.cuda.memory_allocated() / (1024**2)  # in MB
+        gpu_memory_reserved = torch.cuda.memory_reserved() / (1024**2)  # in MB
+        
+        # Get additional GPU stats using nvidia-smi
+        gpu_stats = subprocess.run(["nvidia-smi", "--query-gpu=memory.used,memory.total", "--format=csv,noheader,nounits"],
+                                   capture_output=True, text=True).stdout.strip()
+        
+        gpu_used, gpu_total = map(float, gpu_stats.split(","))
+        
+        _, predicted = torch.max(out, 1)
+        correct = (predicted == label).sum().item()
+        accuracy = correct / label.size(0) * 100
+        
+        # Output the time and memory utilization
+        print(f"forward {t1 - t0} backward {t2 - t1}")
+        print(f"Epoch {epoch} - Loss: {loss.item():.4f}, Accuracy: {accuracy:.2f}%")
+        print(f"GPU Memory Allocated: {gpu_memory_allocated:.2f} MB, Reserved: {gpu_memory_reserved:.2f} MB")
+        print(f"GPU Used/Total (nvidia-smi): {gpu_used:.2f}/{gpu_total:.2f} MB")
 
 def train(model, params, label, optimizer, lossfn):
     torch.cuda.synchronize()
@@ -23,9 +64,9 @@ def train(model, params, label, optimizer, lossfn):
     out = model(*params)
     if isinstance(model, LSTMConv):
         return
-    loss = lossfn(out, label)
     torch.cuda.synchronize()
     t1 = time.time()
+    loss = lossfn(out, label)
     loss.backward()
     optimizer.step()
     torch.cuda.synchronize()
@@ -122,6 +163,30 @@ def get_dset_config(dset):
     elif "friendster" in dset:
         infeat = 384
         outfeat = 64
+    elif "pubmed" in dset:
+        infeat = 500
+        outfeat = 32
+    elif "cora" == dset:
+        infeat = 1433
+        outfeat = 32
+    elif "corafull" == dset:
+        infeat = 8710
+        outfeat = 96
+    elif "ogbn-papers100M_1" in dset:
+        infeat = 128
+        outfeat = 172
+    elif "ogbn-papers100M_2" in dset:
+        infeat = 128
+        outfeat = 172
+    elif "ogbn-papers100M_5" in dset:
+        infeat = 128
+        outfeat = 172
+    elif "ogbn-papers100M_10" in dset:
+        infeat = 128
+        outfeat = 172
+    elif "ogbn-papers100M_25" in dset:
+        infeat = 128
+        outfeat = 172
     else:
         assert False, "unknown dataset"
     return infeat, outfeat
@@ -168,6 +233,19 @@ def to_dgl_block(ptr, idx, num_node_in_layer, num_edge_in_layer):
         )
     return blocks
 
+def load_labels(dset, num_nodes, device):
+    """Load node labels from the file."""
+    label_file = f"/home/chamika2/gnn/data/{dset}/processed/node_labels.dat"
+    print(f"Loading labels from {label_file}")
+    labels = np.fromfile(label_file, dtype=np.int64)
+    sub_labels_np = labels.flatten()
+    #print("Unique labels in subgraph:", np.unique(sub_labels_np))
+    print("Min label:", labels.min().item(), "Max label:", labels.max().item())
+    min_label = labels.min()
+    labels[labels == min_label] = 1
+    if labels.shape[0] != num_nodes:
+        raise ValueError(f"Expected {num_nodes} labels but found {labels.shape[0]} in {label_file}")
+    return torch.from_numpy(labels).to(device)
 
 def run_model(args, model):
     dset = args.dataset
@@ -178,6 +256,7 @@ def run_model(args, model):
     ):
         dset += "-ng"
     infeat, outfeat = get_dset_config(args.dataset)
+    print(dset)
     if args.model.upper() == "LSTM":
         infeat, outfeat = args.dedicate_feat, args.dedicate_feat
     num_head = args.num_head
@@ -199,6 +278,12 @@ def run_model(args, model):
     feat_label = torch.randn(
         [b["num_node_in_layer"][0], outfeat], dtype=torch.float32, device=dev
     )
+    print(feat_label.shape)
+    num_nodes = b["num_node_in_layer"][0]
+    feat_label = load_labels(dset, num_nodes, dev)
+    print(feat_label.shape)
+    num_classes = len(torch.unique(feat_label))
+    print(f"Number of unique classes in labels: {num_classes}")
     # NG
     # new_ptr, new_target = cxgc.neighbor_grouping(ptr, neighbor_thres=32)
     # feat = torch.randn([new_ptr.shape[0] - 1, infeat],device=feat.device)
@@ -207,8 +292,9 @@ def run_model(args, model):
     # b["num_node_in_layer"] = [ptr.shape[0] - 1 for i in range(len(b["num_node_in_layer"]))]
 
     optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
-    lossfn = torch.nn.MSELoss()
+    lossfn = torch.nn.CrossEntropyLoss()
     if args.graph_type == "CSR_Layer" or args.model == "LSTM":
+        #train_epoch(model,[Batch(feat,ptr,idx,b["num_node_in_layer"],b["num_edge_in_layer"],edge_index=edge_index,)],feat_label,optimizer,lossfn,)
         output = cxgc.prof(
             args.graph_type,
             args.model,
@@ -248,7 +334,7 @@ def run_model(args, model):
         )
     else:
         assert False, "unknown graph type"
-    print(f"ans {args.dataset} {args.model} {args.graph_type} {output[0]}")
+    print(f"ans {args.dataset} {args.model} {args.graph_type} {output}")
 
     cxgc.global_tuner.save()
 
@@ -267,8 +353,8 @@ if __name__ == "__main__":
     parser.add_argument("--model", type=str, default="GCN")
     parser.add_argument("--graph_type", type=str, default="CSR_Layer")
     parser.add_argument("--dataset", type=str, default="arxiv")
-    parser.add_argument("--hidden_feat", type=int, default=256)
-    parser.add_argument("--num_layer", type=int, default=3)
+    parser.add_argument("--hidden_feat", type=int, default=1024)
+    parser.add_argument("--num_layer", type=int, default=2)
     parser.add_argument("--num_head", type=int, default=1)
     parser.add_argument("--num_rel", type=int, default=7)
     parser.add_argument("--infeat", type=int, default=-1)

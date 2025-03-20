@@ -41,6 +41,7 @@ class GNN(torch.nn.Module):
             self.convs.append(
                 self.init_conv(self.hidden_channels, self.out_channels, layer=self.num_layer - 1,
                                **kwargs))
+        print("hidden layers: ", len(self.convs))
 
     def init_conv(self, in_channels, out_channels, **kwargs):
         pass
@@ -53,6 +54,7 @@ class GNN(torch.nn.Module):
             bn.reset_parameters()
 
     def forward_cxg(self, batch, skip_first=False):
+        print("Batch Size :", batch.x.shape[0])
         x = batch.x
         # print(f"skip_first {skip_first} {x.shape} {batch.num_node_in_layer}")
         for i, conv in enumerate(self.convs[:-1]):
@@ -63,9 +65,9 @@ class GNN(torch.nn.Module):
             # print("num_node in layer", batch.num_node_in_layer, batch.x.shape)
             if (not skip_first) or i != 0:
                 x = conv(x, batch.ptr, batch.idx, num_node)
-            x = self.bns[i](x)
+            #x = self.bns[i](x)
             x = F.relu(x)
-            x = F.dropout(x, p=self.dropout, training=self.training)
+            #x = F.dropout(x, p=self.dropout, training=self.training)
         x = self.convs[-1](x, batch.ptr, batch.idx, batch.num_node_in_layer[0]
                            if self.graph_type == "CSR_Layer" else 0)
         return x.log_softmax(dim=-1)
@@ -73,18 +75,18 @@ class GNN(torch.nn.Module):
     def forward_dgl(self, blocks, x):
         for layer, conv in enumerate(self.convs[:-1]):
             x = conv(blocks[layer], x)
-            x = self.bns[layer](x)
+            #x = self.bns[layer](x)
             x = F.relu(x)
-            x = F.dropout(x, p=self.dropout, training=self.training)
+            #x = F.dropout(x, p=self.dropout, training=self.training)
         x = self.convs[-1](blocks[-1], x)
         return x.log_softmax(dim=-1)
 
     def forward_pyg(self, edge_index, x):
         for i, conv in enumerate(self.convs[:-1]):
             x = conv(x, edge_index)
-            x = self.bns[i](x)
+            #x = self.bns[i](x)
             x = F.relu(x)
-            x = F.dropout(x, p=self.dropout, training=self.training)
+            #x = F.dropout(x, p=self.dropout, training=self.training)
         x = self.convs[-1](x, edge_index)
         return x.log_softmax(dim=-1)
 
@@ -164,6 +166,7 @@ class RGCN(GNN):
             assert (0)
 
     def forward_cxg(self, batch, skip_first=False):
+        print("Batch Size :", batch.x.shape[0])
         x = batch.x
         if self.gen_rel:
             etypes = cxgnncomp_backend.gen_edge_type_mag240m(
@@ -181,9 +184,9 @@ class RGCN(GNN):
             x = conv(x, batch.ptr, batch.idx,
                      etypes[:batch.num_edge_in_layer[self.num_layer - 1 - i]],
                      num_node)
-            x = self.bns[i](x)
+            #x = self.bns[i](x)
             x = F.relu(x)
-            x = F.dropout(x, p=self.dropout, training=self.training)
+            #x = F.dropout(x, p=self.dropout, training=self.training)
         x = self.convs[-1](x, batch.ptr, batch.idx,
                            etypes[:batch.num_edge_in_layer[0]],
                            batch.num_node_in_layer[0]
@@ -197,9 +200,9 @@ class RGCN(GNN):
         for layer, conv in enumerate(self.convs[:-1]):
             x = conv(blocks[layer], x,
                      etypes[:blocks[layer].number_of_edges()])
-            x = self.bns[layer](x)
+            #x = self.bns[layer](x)
             x = F.relu(x)
-            x = F.dropout(x, p=self.dropout, training=self.training)
+            #x = F.dropout(x, p=self.dropout, training=self.training)
 
         x = self.convs[-1](blocks[-1], x,
                            etypes[:blocks[-1].number_of_edges()])
@@ -211,9 +214,9 @@ class RGCN(GNN):
                                device=x.device)
         for i, conv in enumerate(self.convs[:-1]):
             x = conv(x, edge_index, etypes)
-            x = self.bns[i](x)
+            #[i](x)
             x = F.relu(x)
-            x = F.dropout(x, p=self.dropout, training=self.training)
+            #x = F.dropout(x, p=self.dropout, training=self.training)
         x = self.convs[-1](x, edge_index, etypes)
         return x.log_softmax(dim=-1)
 
@@ -241,9 +244,9 @@ class GAT(GNN):
         for layer, conv in enumerate(self.convs[:-1]):
             x = conv(blocks[layer], x)
             x = x.mean(dim=1)
-            x = self.bns[layer](x)
+            #x = self.bns[layer](x)
             x = F.relu(x)
-            x = F.dropout(x, p=self.dropout, training=self.training)
+            #x = F.dropout(x, p=self.dropout, training=self.training)
         x = self.convs[-1](blocks[-1], x)
         x = x.mean(dim=1)
         return x.log_softmax(dim=-1)
@@ -261,9 +264,9 @@ class GAT(GNN):
                      num_dst=num_dst,
                      num_src=num_src,
                      num_edge=num_edge)
-            x = self.bns[i](x)
+            #x = self.bns[i](x)
             x = F.relu(x)
-            x = F.dropout(x, p=self.dropout, training=self.training)
+            #x = F.dropout(x, p=self.dropout, training=self.training)
         x = self.convs[-1](x,
                            batch.ptr,
                            batch.idx,
@@ -409,6 +412,8 @@ def get_conv_from_str(model_str, infeat, outfeat, num_head=-1, num_rel=-1):
         conv = MySageConv(infeat, outfeat)
     elif model_str == "rgcn":
         conv = MyRGCNConv(infeat, outfeat, num_rel=num_rel)
+    elif model_str == "gin":
+        conv = MyGINConv(infeat, outfeat)
     else:
         assert False, f"unknown model {model_str}"
     return conv
@@ -427,6 +432,14 @@ def get_model_from_str(mtype,
     mtype = mtype.upper()
     if mtype == "GCN":
         model = GCN(infeat,
+                    hiddenfeat,
+                    outfeat,
+                    num_layer,
+                    dropout=dropout,
+                    graph_type=graph_type,
+                    config=None)
+    elif mtype == "GIN":
+        model = GIN(infeat,
                     hiddenfeat,
                     outfeat,
                     num_layer,
