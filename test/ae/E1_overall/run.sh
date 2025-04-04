@@ -1,13 +1,21 @@
 #dsets=(arxiv products reddit papers100M-sample-1000 friendster-sample-1000)
-dsets=(arxiv products cora corafull pubmed reddit)
+#dsets=(arxiv products cora corafull pubmed reddit)
 # models=(LSTM)
-models=(GAT SAGE GCN GIN)
-# graph_types=(CSR_Layer)
+#models=(GAT SAGE GCN GIN)
+models=(GCN)
+dsets=(reddit)
 graph_types=(CSR_Layer)
+#graph_types=(CSR_Layer)
 #num_layers=(2 3 4)
 #hidden_feats=(32 64 256 1024)
-num_layers=(2)
-hidden_feats=(32)
+num_layers=(8)
+hidden_feats=(32 64 128 256 512 1024)
+
+#dsets=(ogbn-papers100M_20)
+#models=(GAT SAGE GCN GIN)
+#graph_types=(CSR_Layer)
+#num_layers=(2)
+#hidden_feats=(32)
 
 for graph_type in ${graph_types[@]}; do
     for dset in ${dsets[@]}; do

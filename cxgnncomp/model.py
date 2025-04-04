@@ -59,7 +59,16 @@ class GNN(torch.nn.Module):
         # print(f"skip_first {skip_first} {x.shape} {batch.num_node_in_layer}")
         for i, conv in enumerate(self.convs[:-1]):
             if self.graph_type == "CSR_Layer":
+                #print(self.num_layer,len(batch.num_node_in_layer))
                 num_node = batch.num_node_in_layer[self.num_layer - 1 - i]
+                #n = len(batch.num_node_in_layer)
+                #if n < self.num_layer:
+                #    pad_count = self.num_layer - n
+                #    pad_values = batch.num_node_in_layer[-1].repeat(pad_count)
+                #    batch.num_node_in_layer = torch.cat([batch.num_node_in_layer, pad_values])
+                #    num_node = batch.num_node_in_layer
+                #else:
+                #    num_node = batch.num_node_in_layer[self.num_layer - 1 - i]
             else:
                 num_node = 0
             # print("num_node in layer", batch.num_node_in_layer, batch.x.shape)

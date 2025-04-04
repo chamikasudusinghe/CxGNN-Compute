@@ -184,6 +184,9 @@ def get_dset_config(dset):
     elif "ogbn-papers100M_10" in dset:
         infeat = 128
         outfeat = 172
+    elif "ogbn-papers100M_20" in dset:
+        infeat = 128
+        outfeat = 172
     elif "ogbn-papers100M_25" in dset:
         infeat = 128
         outfeat = 172
@@ -268,6 +271,7 @@ def run_model(args, model):
         num_seeds=args.num_seeds,
         is_full_graph=args.is_full_graph,
         need_edge_index=True,
+        num_layer=args.num_layer,
     )
     if args.graph_type == "CSR_Layer":
         edge_index = None
@@ -354,7 +358,7 @@ if __name__ == "__main__":
     parser.add_argument("--graph_type", type=str, default="CSR_Layer")
     parser.add_argument("--dataset", type=str, default="arxiv")
     parser.add_argument("--hidden_feat", type=int, default=1024)
-    parser.add_argument("--num_layer", type=int, default=2)
+    parser.add_argument("--num_layer", type=int, default=8)
     parser.add_argument("--num_head", type=int, default=1)
     parser.add_argument("--num_rel", type=int, default=7)
     parser.add_argument("--infeat", type=int, default=-1)

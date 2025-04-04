@@ -26,6 +26,7 @@ def prepare_graph(dset="products",
                   undirected=True,
                   num_seeds=1000,
                   is_full_graph=1,
+                  num_layer=4,
                   need_feat=True,
                   device="cuda",
                   rank=-1):
@@ -36,6 +37,7 @@ def prepare_graph(dset="products",
                                        need_edge_index=need_edge_index,
                                        undirected=undirected,
                                        need_feat=need_feat,
+                                       num_layer=num_layer,
                                        device=device)
     elif is_full_graph == 2:
         return prepare_data_full_graph_training_set(
@@ -68,6 +70,7 @@ def prepare_data_full_graph(dset="products",
                             num_head=1,
                             need_edge_index=0,
                             need_feat=True,
+                            num_layer=4,
                             undirected=True,
                             device="cuda"):
     print(
@@ -103,8 +106,13 @@ def prepare_data_full_graph(dset="products",
     else:
         x = None
     batch = {}
-    batch["num_node_in_layer"] = torch.tensor([ptr.shape[0] - 1] * 4)
-    batch["num_edge_in_layer"] = torch.tensor([idx.shape[0]] * 4)
+    #print(num_layer)
+    if num_layer > 4:
+        batch["num_node_in_layer"] = torch.tensor([ptr.shape[0] - 1] * num_layer)
+        batch["num_edge_in_layer"] = torch.tensor([idx.shape[0]] * num_layer)
+    else:
+        batch["num_node_in_layer"] = torch.tensor([ptr.shape[0] - 1] * 4)
+        batch["num_edge_in_layer"] = torch.tensor([idx.shape[0]] * 4)
     print("After loading full graph structure...")
     print(f"num_edge {idx.shape[0]} num_center {ptr.shape[0] - 1}")
     print(f"num_node_in_layer {batch['num_node_in_layer']}")
