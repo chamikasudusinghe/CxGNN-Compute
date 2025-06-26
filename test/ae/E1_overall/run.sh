@@ -11,7 +11,7 @@ graph_types=(CSR_Layer)
 num_layers=(8)
 hidden_feats=(32 64 128 256 512 1024)
 
-#dsets=(ogbn-papers100M_20)
+#dsets=(ogbn-papers100M_1, ogbn-papers100M_2, ogbn-papers100M_5, ogbn-papers100M_10)
 #models=(GAT SAGE GCN GIN)
 #graph_types=(CSR_Layer)
 #num_layers=(2)
