@@ -24,6 +24,8 @@ for graph_type in "${graph_types[@]}"; do
     done
 done
 
+python fig_parser.py --log_file results_fig16_17.log --hardware h100 --output results_fig16_17.csv
+
 # ----------- Figure 18 & 19 -----------
 echo "Running experiments for Figure 18 & 19..."
 dsets=(reddit)
@@ -46,6 +48,8 @@ for graph_type in "${graph_types[@]}"; do
     done
 done
 
+python fig_parser.py --log_file results_fig18_19.log --hardware h100 --output results_fig18_19.csv
+
 # ----------- Table 5 -----------
 echo "Running experiments for Table 5..."
 dsets=(ogbn-papers100M_1 ogbn-papers100M_2 ogbn-papers100M_5 ogbn-papers100M_10)
@@ -67,5 +71,7 @@ for graph_type in "${graph_types[@]}"; do
         done
     done
 done
+
+python fig_parser.py --log_file results_table5.log --hardware h100 --output results_table5.csv
 
 echo "All experiments completed."
