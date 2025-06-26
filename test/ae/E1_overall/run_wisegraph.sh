@@ -2,6 +2,12 @@
 
 # This script is used to run the experiments for WiseGraph benchmark for the paper "X"
 
+# If log files already exist, scrapping them
+
+#python fig_parser.py --log_file results_fig16_17.log --hardware h100 --output results_fig16_17.csv
+#python fig_parser.py --log_file results_fig18_19.log --hardware h100 --output results_fig18_19.csv
+#python fig_parser.py --log_file results_table5.log --hardware h100 --output results_table5.csv
+
 # ----------- Figure 16 & 17 -----------
 echo "Running experiments for Figure 16 & 17..."
 dsets=(cora pubmed corafull reddit arxiv products)
