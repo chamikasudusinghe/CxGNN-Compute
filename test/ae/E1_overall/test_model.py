@@ -389,6 +389,8 @@ def run_model(args, model):
     #print(f"ans {args.dataset} {args.model} {args.graph_type} {output}")
 
     cxgc.global_tuner.save()
+    
+    print("==========================================")
 
 
 def test_model_training(args):
