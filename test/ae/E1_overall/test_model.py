@@ -391,8 +391,7 @@ def run_model(args, model):
     cxgc.global_tuner.save()
     
     print("==========================================")
-
-
+ 
 def test_model_training(args):
     cxgc.global_tuner.set_lazy(lazy=False)
     cxgc.set_timers()
