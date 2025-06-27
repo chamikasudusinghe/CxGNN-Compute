@@ -57,6 +57,55 @@ def train_epoch(model, params, label, optimizer, lossfn):
         print(f"GPU Memory Allocated: {gpu_memory_allocated:.2f} MB, Reserved: {gpu_memory_reserved:.2f} MB")
         print(f"GPU Used/Total (nvidia-smi): {gpu_used:.2f}/{gpu_total:.2f} MB")
 
+def train_epoch_perf(model, params, label, optimizer, lossfn):
+    total_loss = 0.0
+    total_allocated = 0.0
+    total_reserved = 0.0
+    total_gpu_used = 0.0
+    total_gpu_total = 0.0
+    num_epochs = 99
+
+    for epoch in range(1, 100):
+        optimizer.zero_grad()
+        torch.cuda.synchronize()
+        t0 = time.time()
+
+        out = model(*params)
+        if isinstance(model, LSTMConv):
+            return
+
+        torch.cuda.synchronize()
+        t1 = time.time()
+
+        loss = lossfn(out, label)
+        loss.backward()
+        optimizer.step()
+
+        torch.cuda.synchronize()
+        t2 = time.time()
+
+        gpu_memory_allocated = torch.cuda.memory_allocated() / (1024**2)  # MB
+        gpu_memory_reserved = torch.cuda.memory_reserved() / (1024**2)    # MB
+
+        gpu_stats = subprocess.run(
+            ["nvidia-smi", "--query-gpu=memory.used,memory.total", "--format=csv,noheader,nounits"],
+            capture_output=True, text=True).stdout.strip()
+        gpu_used, gpu_total = map(float, gpu_stats.split(","))
+
+        _, predicted = torch.max(out, 1)
+        correct = (predicted == label).sum().item()
+        accuracy = correct / label.size(0) * 100
+
+        total_loss += loss.item()
+        total_allocated += gpu_memory_allocated
+        total_reserved += gpu_memory_reserved
+        total_gpu_used += gpu_used
+        total_gpu_total += gpu_total
+
+    print(f"Average GPU Memory Allocated: {total_allocated / num_epochs:.2f} MB")
+    print(f"Average GPU Memory Reserved: {total_reserved / num_epochs:.2f} MB")
+    print(f"Average GPU Used/Total (nvidia-smi): {total_gpu_used / num_epochs:.2f}/{total_gpu_total / num_epochs:.2f} MB")
+    
 def train(model, params, label, optimizer, lossfn):
     torch.cuda.synchronize()
     t0 = time.time()
@@ -72,7 +121,8 @@ def train(model, params, label, optimizer, lossfn):
     torch.cuda.synchronize()
     t2 = time.time()
     timer = cxgc.get_timers()
-    print(f"forward {t1 - t0} backward {t2 - t1}")
+    print(f"Inference Time: {t1 - t0} Training Time {t1 - t0 + t2 - t1}")
+    #print(f"forward {t1 - t0} backward {t2 - t1}")
     # timer.log_all(print)
 
 
@@ -235,12 +285,12 @@ def to_dgl_block(ptr, idx, num_node_in_layer, num_edge_in_layer):
 
 def load_labels(dset, num_nodes, device):
     """Load node labels from the file."""
-    label_file = f"/home/chamika2/gnn/data/{dset}/processed/node_labels.dat"
-    print(f"Loading labels from {label_file}")
+    label_file = f"/home/chamika2/gnn2/data/{dset}/processed/node_labels.dat"
+    #print(f"Loading labels from {label_file}")
     labels = np.fromfile(label_file, dtype=np.int64)
     sub_labels_np = labels.flatten()
     #print("Unique labels in subgraph:", np.unique(sub_labels_np))
-    print("Min label:", labels.min().item(), "Max label:", labels.max().item())
+    #print("Min label:", labels.min().item(), "Max label:", labels.max().item())
     min_label = labels.min()
     labels[labels == min_label] = 1
     if labels.shape[0] != num_nodes:
@@ -256,7 +306,7 @@ def run_model(args, model):
     ):
         dset += "-ng"
     infeat, outfeat = get_dset_config(args.dataset)
-    print(dset)
+    print("Dataset: ",dset)
     if args.model.upper() == "LSTM":
         infeat, outfeat = args.dedicate_feat, args.dedicate_feat
     num_head = args.num_head
@@ -278,12 +328,12 @@ def run_model(args, model):
     feat_label = torch.randn(
         [b["num_node_in_layer"][0], outfeat], dtype=torch.float32, device=dev
     )
-    print(feat_label.shape)
+    #print(feat_label.shape)
     num_nodes = b["num_node_in_layer"][0]
     feat_label = load_labels(dset, num_nodes, dev)
-    print(feat_label.shape)
+    #print(feat_label.shape)
     num_classes = len(torch.unique(feat_label))
-    print(f"Number of unique classes in labels: {num_classes}")
+    #print(f"Number of unique classes in labels: {num_classes}")
     # NG
     # new_ptr, new_target = cxgc.neighbor_grouping(ptr, neighbor_thres=32)
     # feat = torch.randn([new_ptr.shape[0] - 1, infeat],device=feat.device)
@@ -315,6 +365,7 @@ def run_model(args, model):
                 lossfn,
             ),
         )
+        train_epoch_perf(model,[Batch(feat,ptr,idx,b["num_node_in_layer"],b["num_edge_in_layer"],edge_index=edge_index,)],feat_label,optimizer,lossfn,)
     elif args.graph_type == "DGL":
         dgl_blocks = to_dgl_block(
             ptr, idx, b["num_node_in_layer"], b["num_edge_in_layer"]
@@ -334,9 +385,11 @@ def run_model(args, model):
         )
     else:
         assert False, "unknown graph type"
-    print(f"ans {args.dataset} {args.model} {args.graph_type} {output}")
+    #(f"ans {args.dataset} {args.model} {args.graph_type} {output}")
 
     cxgc.global_tuner.save()
+    
+    print("==========================================")
 
 
 def test_model_training(args):

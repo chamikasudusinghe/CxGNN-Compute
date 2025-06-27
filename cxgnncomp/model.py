@@ -41,7 +41,7 @@ class GNN(torch.nn.Module):
             self.convs.append(
                 self.init_conv(self.hidden_channels, self.out_channels, layer=self.num_layer - 1,
                                **kwargs))
-        print("hidden layers: ", len(self.convs))
+        #print("hidden layers: ", len(self.convs))
 
     def init_conv(self, in_channels, out_channels, **kwargs):
         pass
@@ -54,12 +54,21 @@ class GNN(torch.nn.Module):
             bn.reset_parameters()
 
     def forward_cxg(self, batch, skip_first=False):
-        print("Batch Size :", batch.x.shape[0])
+        #print("Batch Size :", batch.x.shape[0])
         x = batch.x
         # print(f"skip_first {skip_first} {x.shape} {batch.num_node_in_layer}")
         for i, conv in enumerate(self.convs[:-1]):
             if self.graph_type == "CSR_Layer":
+                #print(self.num_layer,len(batch.num_node_in_layer))
                 num_node = batch.num_node_in_layer[self.num_layer - 1 - i]
+                #n = len(batch.num_node_in_layer)
+                #if n < self.num_layer:
+                #    pad_count = self.num_layer - n
+                #    pad_values = batch.num_node_in_layer[-1].repeat(pad_count)
+                #    batch.num_node_in_layer = torch.cat([batch.num_node_in_layer, pad_values])
+                #    num_node = batch.num_node_in_layer
+                #else:
+                #    num_node = batch.num_node_in_layer[self.num_layer - 1 - i]
             else:
                 num_node = 0
             # print("num_node in layer", batch.num_node_in_layer, batch.x.shape)
@@ -166,7 +175,7 @@ class RGCN(GNN):
             assert (0)
 
     def forward_cxg(self, batch, skip_first=False):
-        print("Batch Size :", batch.x.shape[0])
+        #print("Batch Size :", batch.x.shape[0])
         x = batch.x
         if self.gen_rel:
             etypes = cxgnncomp_backend.gen_edge_type_mag240m(

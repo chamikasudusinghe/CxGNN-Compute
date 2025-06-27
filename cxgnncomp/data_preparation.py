@@ -26,6 +26,7 @@ def prepare_graph(dset="products",
                   undirected=True,
                   num_seeds=1000,
                   is_full_graph=1,
+                  num_layer=4,
                   need_feat=True,
                   device="cuda",
                   rank=-1):
@@ -36,6 +37,7 @@ def prepare_graph(dset="products",
                                        need_edge_index=need_edge_index,
                                        undirected=undirected,
                                        need_feat=need_feat,
+                                       num_layer=num_layer,
                                        device=device)
     elif is_full_graph == 2:
         return prepare_data_full_graph_training_set(
@@ -57,7 +59,7 @@ def prepare_graph(dset="products",
 
 def load_node_features(dset, num_nodes, feat_len, num_head, device):
     feature_path = f"/home/chamika2/gnn/data/{dset}/processed/node_features.dat"
-    print(f"Loading node features from {feature_path}")
+    #print(f"Loading node features from {feature_path}")
     features = np.fromfile(feature_path, dtype=np.float32).reshape(num_nodes, feat_len)
     features_tensor = torch.from_numpy(features).to(device)
     
@@ -68,6 +70,7 @@ def prepare_data_full_graph(dset="products",
                             num_head=1,
                             need_edge_index=0,
                             need_feat=True,
+                            num_layer=4,
                             undirected=True,
                             device="cuda"):
     print(
@@ -76,15 +79,15 @@ def prepare_data_full_graph(dset="products",
     ptr, idx = cxgnndl.load_full_graph_structure(dset, undirected)
     ptr = torch.from_numpy(ptr).to(device)
     idx = torch.from_numpy(idx).to(device)
-    print(f"ptr: {ptr}")
-    print(f"idx: {idx}")
-    print(f"ptr.shape[0]: {ptr.shape[0]}")
-    print(f"idx.shape[0]: {idx.shape[0]}")
-    print(f"Max index in idx: {torch.max(idx)}")
+    #print(f"ptr: {ptr}")
+    #print(f"idx: {idx}")
+    #print(f"ptr.shape[0]: {ptr.shape[0]}")
+    #print(f"idx.shape[0]: {idx.shape[0]}")
+    #print(f"Max index in idx: {torch.max(idx)}")
     num_node = max(torch.max(idx) + 1, ptr.shape[0] - 1)
     if feat_len == 0:
         need_feat = False
-    print(f"Number of nodes: {num_node}")
+    #print(f"Number of nodes: {num_node}")
     if ptr.shape[0] - 1 != num_node:
         new_ptr = torch.zeros([num_node + 1], dtype=torch.int64, device=device)
         new_ptr[:ptr.shape[0]] = ptr
@@ -103,11 +106,16 @@ def prepare_data_full_graph(dset="products",
     else:
         x = None
     batch = {}
-    batch["num_node_in_layer"] = torch.tensor([ptr.shape[0] - 1] * 4)
-    batch["num_edge_in_layer"] = torch.tensor([idx.shape[0]] * 4)
-    print("After loading full graph structure...")
-    print(f"num_edge {idx.shape[0]} num_center {ptr.shape[0] - 1}")
-    print(f"num_node_in_layer {batch['num_node_in_layer']}")
+    #print(num_layer)
+    if num_layer > 4:
+        batch["num_node_in_layer"] = torch.tensor([ptr.shape[0] - 1] * num_layer)
+        batch["num_edge_in_layer"] = torch.tensor([idx.shape[0]] * num_layer)
+    else:
+        batch["num_node_in_layer"] = torch.tensor([ptr.shape[0] - 1] * 4)
+        batch["num_edge_in_layer"] = torch.tensor([idx.shape[0]] * 4)
+    #print("After loading full graph structure...")
+    #print(f"num_edge {idx.shape[0]} num_center {ptr.shape[0] - 1}")
+    #print(f"num_node_in_layer {batch['num_node_in_layer']}")
     if need_edge_index:
         edge_index = torch.stack([
             idx,
