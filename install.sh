@@ -1,11 +1,15 @@
 pip install torch==2.1.0
 yes | pip uninstall triton
+pip install "numpy<2"
+
 cd ../triton/python
 git checkout release/2.1.x
 python setup.py build -j32 develop
 cd ../../CxGNN-DL
+git checkout a100
 python setup.py build -j32 develop
 cd ../CxGNN-Compute
+git checkout a100
 python setup.py build -j32 develop
 
 pip install  dgl==1.0.0 -f https://data.dgl.ai/wheels/cu121/repo.html
